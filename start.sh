@@ -23,7 +23,7 @@ if [ ! -z ${SERVICE_NETWORK+X} ]; then
 fi
 
 # 4. Download the latest version of nginx.tmpl
-curl https://raw.githubusercontent.com/jwilder/nginx-proxy/master/nginx.tmpl > nginx.tmpl
+# curl https://raw.githubusercontent.com/jwilder/nginx-proxy/master/nginx.tmpl > nginx.tmpl
 
 # 5. Update local images
 docker-compose pull
@@ -37,7 +37,10 @@ if [ ! -z ${USE_NGINX_CONF_FILES+X} ] && [ "$USE_NGINX_CONF_FILES" = true ]; the
     mkdir -p $NGINX_FILES_PATH/conf.d
 
     # Copy the special configurations to the nginx conf folder
-    cp -R ./conf.d/* $NGINX_FILES_PATH/conf.d
+    cp -R ./nginx/conf.d/* $NGINX_FILES_PATH/conf.d
+
+    # Copy the nginx.conf to the container's /etc/nginx folder
+    cp ./nginx/nginx.conf $NGINX_FILES_PATH/
 
     # Check if there was an error and try with sudo
     if [ $? -ne 0 ]; then

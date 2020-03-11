@@ -1,39 +1,44 @@
-version: '3'
+version: '3.7'
 services:
-  nginx-web:
-    image: nginx
+  nginx-proxy:
+    image: nginx:alpine
     labels:
         com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
-    container_name: ${NGINX_WEB:-nginx-web}
+    container_name: ${ORGANIZATION}-${NGINX_PROXY:-nginx-proxy}
     restart: always
     ports:
       - "${IP:-0.0.0.0}:${DOCKER_HTTP:-80}:80"
       - "${IP:-0.0.0.0}:${DOCKER_HTTPS:-443}:443"
+      - "${IP:-0.0.0.0}:6033:3306"
     volumes:
-      - ${NGINX_FILES_PATH:-./data}/conf.d:/etc/nginx/conf.d
-      - ${NGINX_FILES_PATH:-./data}/vhost.d:/etc/nginx/vhost.d
-      - ${NGINX_FILES_PATH:-./data}/html:/usr/share/nginx/html
-      - ${NGINX_FILES_PATH:-./data}/certs:/etc/nginx/certs:ro
-      - ${NGINX_FILES_PATH:-./data}/htpasswd:/etc/nginx/htpasswd:ro
+      - ${NGINX_FILES_PATH:-./nginx-data}/nginx.conf:/etc/nginx/nginx.conf
+      - ${NGINX_FILES_PATH:-./nginx-data}/conf.d:/etc/nginx/conf.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/vhost.d:/etc/nginx/vhost.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/html:/usr/share/nginx/html
+      - ${NGINX_FILES_PATH:-./nginx-data}/certs:/etc/nginx/certs:ro
+      - ${NGINX_FILES_PATH:-./nginx-data}/htpasswd:/etc/nginx/htpasswd:ro
+   #external_links:
+      #- api:tomcat
+      #- db:mysql
     logging:
-      driver: ${NGINX_WEB_LOG_DRIVER:-json-file}
+      driver: ${NGINX_PROXY_LOG_DRIVER:-json-file}
       options:
-        max-size: ${NGINX_WEB_LOG_MAX_SIZE:-4m}
-        max-file: ${NGINX_WEB_LOG_MAX_FILE:-10}
+        max-size: ${NGINX_PROXY_LOG_MAX_SIZE:-4m}
+        max-file: ${NGINX_PROXY_LOG_MAX_FILE:-10}
 
   nginx-gen:
     image: jwilder/docker-gen
-    command: -notify-sighup ${NGINX_WEB:-nginx-web} -watch -wait 5s:30s /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
-    container_name: ${DOCKER_GEN:-nginx-gen}
+    container_name: ${ORGANIZATION}-${DOCKER_GEN:-nginx-gen}
+    command: -notify-sighup ${ORGANIZATION}-${NGINX_PROXY:-nginx-proxy} -watch -wait 5s:30s /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
     restart: always
     environment:
       SSL_POLICY: ${SSL_POLICY:-Mozilla-Intermediate}
     volumes:
-      - ${NGINX_FILES_PATH:-./data}/conf.d:/etc/nginx/conf.d
-      - ${NGINX_FILES_PATH:-./data}/vhost.d:/etc/nginx/vhost.d
-      - ${NGINX_FILES_PATH:-./data}/html:/usr/share/nginx/html
-      - ${NGINX_FILES_PATH:-./data}/certs:/etc/nginx/certs:ro
-      - ${NGINX_FILES_PATH:-./data}/htpasswd:/etc/nginx/htpasswd:ro
+      - ${NGINX_FILES_PATH:-./nginx-data}/conf.d:/etc/nginx/conf.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/vhost.d:/etc/nginx/vhost.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/html:/usr/share/nginx/html
+      - ${NGINX_FILES_PATH:-./nginx-data}/certs:/etc/nginx/certs:ro
+      - ${NGINX_FILES_PATH:-./nginx-data}/htpasswd:/etc/nginx/htpasswd:ro
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro
     logging:
@@ -44,22 +49,84 @@ services:
 
   nginx-letsencrypt:
     image: jrcs/letsencrypt-nginx-proxy-companion
-    container_name: ${LETS_ENCRYPT:-nginx-letsencrypt}
+    container_name: ${ORGANIZATION}-${LETS_ENCRYPT:-nginx-letsencrypt}
     restart: always
     volumes:
-      - ${NGINX_FILES_PATH:-./data}/conf.d:/etc/nginx/conf.d
-      - ${NGINX_FILES_PATH:-./data}/vhost.d:/etc/nginx/vhost.d
-      - ${NGINX_FILES_PATH:-./data}/html:/usr/share/nginx/html
-      - ${NGINX_FILES_PATH:-./data}/certs:/etc/nginx/certs:rw
+      - ${NGINX_FILES_PATH:-./nginx-data}/conf.d:/etc/nginx/conf.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/vhost.d:/etc/nginx/vhost.d
+      - ${NGINX_FILES_PATH:-./nginx-data}/html:/usr/share/nginx/html
+      - ${NGINX_FILES_PATH:-./nginx-data}/certs:/etc/nginx/certs:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      NGINX_DOCKER_GEN_CONTAINER: ${DOCKER_GEN:-nginx-gen}
-      NGINX_PROXY_CONTAINER: ${NGINX_WEB:-nginx-web}
+      NGINX_DOCKER_GEN_CONTAINER: ${ORGANIZATION}-${DOCKER_GEN:-nginx-gen}
+      NGINX_PROXY_CONTAINER: ${ORGANIZATION}-${NGINX_PROXY:-nginx-proxy}
     logging:
       driver: ${NGINX_LETSENCRYPT_LOG_DRIVER:-json-file}
       options:
         max-size: ${NGINX_LETSENCRYPT_LOG_MAX_SIZE:-2m}
         max-file: ${NGINX_LETSENCRYPT_LOG_MAX_FILE:-10}
+
+  app:
+    image: httpd:alpine
+    container_name: ${ORGANIZATION}-${APP:-app}
+    restart: always
+    volumes: 
+      - ${APP_FILES_PATH:-./app-data}/htdocs:/usr/local/apache2/htdocs
+    environment: 
+      VIRTUAL_HOST: ${DOMAIN},www.${DOMAIN}
+      LETSENCRYPT_HOST: ${DOMAIN},www.${DOMAIN}
+      LETSENCRYPT_EMAIL: ${EMAIL}
+    logging: 
+      driver: ${APP_LOG_DRIVER:-json-file}
+      options: 
+        max-size: ${APP_LOG_MAX_SIZE:-4m}
+        max-file: ${APP_LOG_MAX_FILE:-10}
+
+  db:
+    image: mysql
+    container_name: ${ORGANIZATION}-${DB:-db}
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    volumes: 
+      - ${DB_FILES_PATH:-./db-data}/conf.d:/etc/mysql/conf.d
+      - ${DB_FILES_PATH:-./db-data}/mysql:/var/lib/mysql
+    environment: 
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/my_root_pw
+      MYSQL_DATABASE_FILE: /run/secrets/my_db
+      MYSQL_USER_FILE: /run/secrets/my_usr
+      MYSQL_PASSWORD_FILE: /run/secrets/my_pw
+    secrets:
+      - my_root_pw
+      - my_db
+      - my_usr
+      - my_pw
+    logging: 
+      driver: ${DB_LOG_DRIVER:-json-file}
+      options: 
+        max-size: ${DB_LOG_MAX_SIZE:-4m}
+        max-file: ${DB_LOG_MAX_FILE:-10}
+
+  api:
+    build: ./api
+    container_name: ${ORGANIZATION}-${API:-api}
+    depends_on: 
+      - db
+    restart: always
+    logging: 
+      driver: ${API_LOG_DRIVER:-json-file}
+      options: 
+        max-size: ${API_LOG_MAX_SIZE:-4m}
+        max-file: ${API_LOG_MAX_FILE:-10}
+      
+secrets:
+  my_root_pw:
+    file: ./secrets/mysql_root_pw.txt
+  my_db:
+    file: ./secrets/mysql_db.txt
+  my_usr:
+    file: ./secrets/mysql_usr.txt
+  my_pw:
+    file: ./secrets/mysql_pw.txt
 
 networks:
   default:

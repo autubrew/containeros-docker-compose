@@ -2,3 +2,10 @@ data
 .env*
 !.env.sample
 .DS_Store
+
+*.jar
+
+nginx-data/
+app-data/htdocs/*
+db-data/
+secrets/
