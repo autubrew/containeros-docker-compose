@@ -4,8 +4,11 @@ data
 .DS_Store
 
 *.jar
+*.old
+*.zip
+*.7z
 
-nginx-data/
-app-data/htdocs/*
-db-data/
+nginx-volume/
+app-volume/
+db-volume/
 secrets/

@@ -25,10 +25,14 @@ fi
 # 4. Download the latest version of nginx.tmpl
 # curl https://raw.githubusercontent.com/jwilder/nginx-proxy/master/nginx.tmpl > nginx.tmpl
 
-# 5. Update local images
-docker-compose pull
+# 5. Use maven to build .jar file
+# docker run -it --rm --name $ORGANIZATION-maven-build -v "${pwk}/api/DockerBack":/usr/src/mymaven -w /usr/src/mymaven maven:3.3-jdk-8 mvn clean package
 
-# 6. Add any special configuration if it's set in .env file
+# 6. Update local images and rebuild custom images
+docker-compose pull
+docker-compose build
+
+# 7. Add any special configuration if it's set in .env file
 
 # Check if user set to use Special Conf Files
 if [ ! -z ${USE_NGINX_CONF_FILES+X} ] && [ "$USE_NGINX_CONF_FILES" = true ]; then
@@ -58,9 +62,12 @@ if [ ! -z ${USE_NGINX_CONF_FILES+X} ] && [ "$USE_NGINX_CONF_FILES" = true ]; the
         echo 
         echo "#######################################################"
     fi
-fi 
+fi
 
-# 7. Start proxy
+mkdir -p $DB_FILES_PATH
+cp -R ./db/my.cnf $DB_FILES_PATH/ 
+
+# 8. Start proxy
 
 # Check if you have multiple network
 if [ -z ${SERVICE_NETWORK+X} ]; then

@@ -333,12 +333,15 @@ server {
 
 	location ^~ /api/ {
 		proxy_pass http://api:8080/;
-		#proxy_pass http://tomcat:8080/; # 需要在docker-compose.yml中指定external_links来命名容器内部连接名，这里命名为tomcat
-		#proxy_set_header URL $request_uri;
+		proxy_set_header URL $request_uri;
 	}
 
 	location ^~ /image/ {
 		root /usr/share/nginx/html; 
+	}
+
+	location ^~ /pdf/ {
+		root /usr/share/nginx/html;
 	}
 	
 }

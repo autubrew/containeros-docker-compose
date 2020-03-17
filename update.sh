@@ -35,11 +35,11 @@ fi
 # curl https://raw.githubusercontent.com/jwilder/nginx-proxy/master/nginx.tmpl > nginx.tmpl
 
 # 4. Update containers without downtime
-docker-compose up -d --no-deps --build $ORGANIZATION-$NGINX_PROXY
-docker-compose up -d --no-deps --build $ORGANIZATION-$DOCKER_GEN
-docker-compose up -d --no-deps --build $ORGANIZATION-$LETS_ENCRYPT
-docker-compose up -d --no-deps --build $ORGANIZATION-$APP
-docker-compose up -d --no-deps --build $ORGANIZATION-$DB
-docker-compose up -d --no-deps --build $ORGANIZATION-$API
+docker-compose up -d --no-deps --build nginx-proxy
+docker-compose up -d --no-deps --build nginx-gen
+docker-compose up -d --no-deps --build nginx-letsencrypt
+docker-compose up -d --no-deps --build app
+docker-compose up -d --no-deps --build db
+docker-compose up -d --no-deps --build api
 
 exit 0
